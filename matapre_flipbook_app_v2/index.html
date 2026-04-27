@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>マタプレ冊子 フリップブック</title>
+  <style>
+:root {
+  --bg: #f4efe7;
+  --ink: #2c2a27;
+  --muted: #6f6a63;
+  --paper: #fffaf3;
+  --accent: #c88791;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(255,255,255,.95), rgba(255,255,255,0) 42%),
+    linear-gradient(135deg, #f8f2ea, #eadfd2 54%, #f7f1ea);
+}
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 14px clamp(14px, 3vw, 34px) 8px;
+}
+.title h1 {
+  margin: 0 0 4px;
+  font-size: clamp(18px, 2.2vw, 28px);
+  line-height: 1.2;
+}
+.title p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+button {
+  border: 0;
+  background: #fff;
+  color: var(--ink);
+  padding: 10px 14px;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(80, 55, 30, .14);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .15s ease, opacity .15s ease;
+}
+button:hover { transform: translateY(-1px); }
+button:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+.viewer-wrap {
+  display: grid;
+  place-items: center;
+  padding: 8px clamp(10px, 2vw, 26px) 16px;
+  overflow: hidden;
+}
+.viewer {
+  width: min(96vw, 1120px);
+  display: grid;
+  place-items: center;
+  perspective: 2600px;
+}
+.book {
+  position: relative;
+  height: min(76vh, 760px);
+  max-width: 100%;
+  aspect-ratio: 1.414 / 1;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 24px 30px rgba(44, 32, 19, .23));
+  transition: aspect-ratio .2s ease, height .2s ease;
+}
+.book.single { aspect-ratio: .707 / 1; }
+.pages {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: rgba(94, 71, 40, .12);
+  border-radius: 12px;
+  overflow: visible;
+}
+.book.single .pages { grid-template-columns: 1fr; }
+.page {
+  position: relative;
+  background: var(--paper);
+  overflow: hidden;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+.page img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.page.left {
+  border-radius: 12px 3px 3px 12px;
+  box-shadow: inset -20px 0 24px rgba(50, 32, 12, .08);
+}
+.page.right {
+  border-radius: 3px 12px 12px 3px;
+  box-shadow: inset 20px 0 24px rgba(50, 32, 12, .07);
+}
+.book.single .page.left { display: none; }
+.book.single .page.right { border-radius: 12px; box-shadow: inset 0 0 30px rgba(50, 32, 12, .05); }
+.gutter {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 34px;
+  transform: translateX(-50%);
+  z-index: 4;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,.16), rgba(255,255,255,.18) 45%, rgba(0,0,0,.16));
+  mix-blend-mode: multiply;
+  opacity: .33;
+  border-radius: 50%;
+}
+.book.single .gutter { display: none; }
+.hint-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.hint-zone button {
+  opacity: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.flip-layer {
+  display: none;
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 50%;
+  z-index: 12;
+  transform-style: preserve-3d;
+  background: var(--paper);
+  overflow: hidden;
+  backface-visibility: hidden;
+  box-shadow: 0 12px 36px rgba(35, 22, 10, .24);
+}
+.flip-layer img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.flip-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,.22), rgba(255,255,255,0) 38%, rgba(255,255,255,.24));
+  opacity: .45;
+  pointer-events: none;
+}
+.flip-layer.next {
+  display: block;
+  right: 0;
+  transform-origin: left center;
+  border-radius: 3px 12px 12px 3px;
+  animation: flipNext .78s cubic-bezier(.2,.7,.15,1) forwards;
+}
+.flip-layer.prev {
+  display: block;
+  left: 0;
+  transform-origin: right center;
+  border-radius: 12px 3px 3px 12px;
+  animation: flipPrev .78s cubic-bezier(.2,.7,.15,1) forwards;
+}
+.book.single .flip-layer {
+  width: 100%;
+  border-radius: 12px;
+}
+.book.single .flip-layer.next { left: 0; right: auto; transform-origin: left center; }
+.book.single .flip-layer.prev { left: 0; transform-origin: right center; }
+@keyframes flipNext {
+  0% { transform: rotateY(0deg); }
+  38% { filter: brightness(.96); }
+  100% { transform: rotateY(-178deg); }
+}
+@keyframes flipPrev {
+  0% { transform: rotateY(0deg); }
+  38% { filter: brightness(.96); }
+  100% { transform: rotateY(178deg); }
+}
+footer {
+  padding: 0 clamp(16px, 3vw, 34px) 16px;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+.range-row {
+  width: min(780px, 92vw);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.status {
+  padding: 8px 12px;
+  background: rgba(255,255,255,.68);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  box-shadow: 0 4px 14px rgba(80,55,30,.08);
+}
+@media (max-width: 720px) {
+  header { align-items: flex-start; flex-direction: column; }
+  .controls { justify-content: flex-start; }
+  .book { height: auto; width: min(96vw, 1120px); }
+  .book:not(.single) { aspect-ratio: 1.414 / 1; }
+  .book.single { width: min(72vw, 540px); aspect-ratio: .707 / 1; }
+}
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="title">
+        <h1>マタプレ冊子 フリップブック</h1>
+        <p>表紙・裏表紙は単独、本文は見開き表示。左右クリック、矢印キー、スワイプでめくれます。</p>
+      </div>
+      <div class="controls">
+        <button id="firstBtn" type="button">最初</button>
+        <button id="prevBtn" type="button">← 戻る</button>
+        <button id="nextBtn" type="button">次へ →</button>
+        <button id="lastBtn" type="button">最後</button>
+      </div>
+    </header>
+    <main class="viewer-wrap">
+      <div class="viewer">
+        <div id="book" class="book single" aria-live="polite">
+          <div class="pages">
+            <div class="page left"><img id="leftImg" alt="左ページ"></div>
+            <div class="page right"><img id="rightImg" alt="右ページ"></div>
+            <div class="gutter"></div>
+          </div>
+          <div id="flipLayer" class="flip-layer"><img id="flipImg" alt="めくり中のページ"></div>
+          <div class="hint-zone" aria-hidden="true">
+            <button id="leftClick" type="button" tabindex="-1">前へ</button>
+            <button id="rightClick" type="button" tabindex="-1">次へ</button>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer>
+      <div class="range-row"><span>表紙</span><input id="pageRange" type="range" min="0" value="0"><span>裏表紙</span></div>
+      <div id="statusText" class="status"></div>
+    </footer>
+  </div>
+  <script>
+const PAGES = [{"num": 1, "src": "assets/page-01.jpg"}, {"num": 2, "src": "assets/page-02.jpg"}, {"num": 3, "src": "assets/page-03.jpg"}, {"num": 4, "src": "assets/page-04.jpg"}, {"num": 5, "src": "assets/page-05.jpg"}, {"num": 6, "src": "assets/page-06.jpg"}, {"num": 7, "src": "assets/page-07.jpg"}, {"num": 8, "src": "assets/page-08.jpg"}, {"num": 9, "src": "assets/page-09.jpg"}, {"num": 10, "src": "assets/page-10.jpg"}, {"num": 11, "src": "assets/page-11.jpg"}, {"num": 12, "src": "assets/page-12.jpg"}, {"num": 13, "src": "assets/page-13.jpg"}, {"num": 14, "src": "assets/page-14.jpg"}, {"num": 15, "src": "assets/page-15.jpg"}, {"num": 16, "src": "assets/page-16.jpg"}, {"num": 17, "src": "assets/page-17.jpg"}, {"num": 18, "src": "assets/page-18.jpg"}, {"num": 19, "src": "assets/page-19.jpg"}, {"num": 20, "src": "assets/page-20.jpg"}, {"num": 21, "src": "assets/page-21.jpg"}, {"num": 22, "src": "assets/page-22.jpg"}, {"num": 23, "src": "assets/page-23.jpg"}, {"num": 24, "src": "assets/page-24.jpg"}];
+const GROUPS = [{"type": "single", "pages": [1], "label": "表紙"}, {"type": "spread", "pages": [2, 3], "label": "2-3ページ"}, {"type": "spread", "pages": [4, 5], "label": "4-5ページ"}, {"type": "spread", "pages": [6, 7], "label": "6-7ページ"}, {"type": "spread", "pages": [8, 9], "label": "8-9ページ"}, {"type": "spread", "pages": [10, 11], "label": "10-11ページ"}, {"type": "spread", "pages": [12, 13], "label": "12-13ページ"}, {"type": "spread", "pages": [14, 15], "label": "14-15ページ"}, {"type": "spread", "pages": [16, 17], "label": "16-17ページ"}, {"type": "spread", "pages": [18, 19], "label": "18-19ページ"}, {"type": "spread", "pages": [20, 21], "label": "20-21ページ"}, {"type": "spread", "pages": [22, 23], "label": "22-23ページ"}, {"type": "single", "pages": [24], "label": "裏表紙"}];
+let viewIndex = 0;
+let isAnimating = false;
+
+const book = document.getElementById('book');
+const leftImg = document.getElementById('leftImg');
+const rightImg = document.getElementById('rightImg');
+const flipLayer = document.getElementById('flipLayer');
+const flipImg = document.getElementById('flipImg');
+const statusText = document.getElementById('statusText');
+const pageRange = document.getElementById('pageRange');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const firstBtn = document.getElementById('firstBtn');
+const lastBtn = document.getElementById('lastBtn');
+const leftClick = document.getElementById('leftClick');
+const rightClick = document.getElementById('rightClick');
+
+function srcFor(pageNum) { return PAGES[pageNum - 1].src; }
+
+function render(index = viewIndex) {
+  const group = GROUPS[index];
+  book.classList.toggle('single', group.type === 'single');
+  if (group.type === 'single') {
+    leftImg.removeAttribute('src');
+    rightImg.src = srcFor(group.pages[0]);
+  } else {
+    leftImg.src = srcFor(group.pages[0]);
+    rightImg.src = srcFor(group.pages[1]);
+  }
+  statusText.textContent = `${index + 1} / ${GROUPS.length}　${group.label}`;
+  pageRange.value = String(index);
+  prevBtn.disabled = index === 0 || isAnimating;
+  firstBtn.disabled = index === 0 || isAnimating;
+  nextBtn.disabled = index === GROUPS.length - 1 || isAnimating;
+  lastBtn.disabled = index === GROUPS.length - 1 || isAnimating;
+}
+
+function startFlip(direction, targetIndex) {
+  if (isAnimating || targetIndex < 0 || targetIndex >= GROUPS.length || targetIndex === viewIndex) return;
+  isAnimating = true;
+  const current = GROUPS[viewIndex];
+  const pageForOverlay = current.type === 'single'
+    ? current.pages[0]
+    : (direction === 'next' ? current.pages[1] : current.pages[0]);
+  flipImg.src = srcFor(pageForOverlay);
+  flipLayer.className = `flip-layer ${direction}`;
+  render(viewIndex);
+  window.setTimeout(() => {
+    viewIndex = targetIndex;
+    flipLayer.className = 'flip-layer';
+    flipImg.removeAttribute('src');
+    isAnimating = false;
+    render(viewIndex);
+  }, 760);
+}
+function next() { startFlip('next', viewIndex + 1); }
+function prev() { startFlip('prev', viewIndex - 1); }
+function jumpTo(index) {
+  index = Number(index);
+  if (Number.isNaN(index) || index === viewIndex) return;
+  startFlip(index > viewIndex ? 'next' : 'prev', index);
+}
+
+prevBtn.addEventListener('click', prev);
+nextBtn.addEventListener('click', next);
+firstBtn.addEventListener('click', () => jumpTo(0));
+lastBtn.addEventListener('click', () => jumpTo(GROUPS.length - 1));
+leftClick.addEventListener('click', prev);
+rightClick.addEventListener('click', next);
+pageRange.max = String(GROUPS.length - 1);
+pageRange.addEventListener('input', (e) => jumpTo(e.target.value));
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') next();
+  if (e.key === 'ArrowLeft' || e.key === 'PageUp') prev();
+  if (e.key === 'Home') jumpTo(0);
+  if (e.key === 'End') jumpTo(GROUPS.length - 1);
+});
+let startX = 0;
+book.addEventListener('touchstart', (e) => { startX = e.changedTouches[0].screenX; }, { passive: true });
+book.addEventListener('touchend', (e) => {
+  const diff = e.changedTouches[0].screenX - startX;
+  if (Math.abs(diff) > 44) diff < 0 ? next() : prev();
+}, { passive: true });
+
+// Preload pages for smoother flips.
+PAGES.forEach((p) => { const img = new Image(); img.src = p.src; });
+render(0);
+</script>
+</body>
+</html>
