@@ -367,10 +367,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
       <div id="statusText" class="status">読み込み中</div>
     </footer>
   </div>
-  <script type="module">
-import * as pdfjsLib from "./pdf.mjs";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = "./pdf.worker.mjs";
+  <script src="./pdf.min.js"></script>
+  <script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "./pdf.worker.min.js";
 
 const BOOKS = {
   tetoteto: { title: "てとてと", file: "./flipbooks/tetoteto.pdf" },
