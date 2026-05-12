@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ユーコープ絵本 フリップブック</title>
+  <style>
+:root {
+  --bg: #f5efe7;
+  --ink: #2c2a27;
+  --muted: #6f6a63;
+  --paper: #fffaf3;
+  --accent: #bd6f7e;
+}
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+  background:
+    radial-gradient(circle at 48% 0%, rgba(255,255,255,.96), rgba(255,255,255,0) 42%),
+    linear-gradient(135deg, #f9f1e7, #eaded0 52%, #f7f1ea);
+}
+.app {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  padding: 12px clamp(14px, 3vw, 34px) 6px;
+}
+.title p {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+.title h1 {
+  margin: 0;
+  font-size: clamp(25px, 3.5vw, 45px);
+  line-height: 1.15;
+}
+.tools {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+.book-switcher,
+.controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.book-switcher {
+  padding: 4px;
+  border: 1px solid rgba(94,71,40,.13);
+  border-radius: 999px;
+  background: rgba(255,255,255,.52);
+}
+button {
+  min-height: 40px;
+  border: 0;
+  background: #fff;
+  color: var(--ink);
+  padding: 0 15px;
+  border-radius: 999px;
+  box-shadow: 0 7px 20px rgba(80,55,30,.14);
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .15s ease, opacity .15s ease, background .15s ease, color .15s ease;
+}
+button:hover:not(:disabled) { transform: translateY(-1px); }
+button:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+.book-switcher button {
+  min-height: 34px;
+  padding: 0 16px;
+  box-shadow: none;
+  background: transparent;
+  color: var(--muted);
+}
+.book-switcher button.active {
+  background: var(--accent);
+  color: #fff;
+}
+.viewer-wrap {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 4px clamp(10px, 2vw, 26px) 10px;
+  overflow: hidden;
+}
+.viewer {
+  width: min(96vw, 1120px);
+  display: grid;
+  place-items: center;
+  perspective: 2600px;
+}
+.book {
+  position: relative;
+  height: min(62vh, 690px);
+  max-width: 100%;
+  aspect-ratio: 1.414 / 1;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 24px 30px rgba(44,32,19,.23));
+  transition: aspect-ratio .2s ease, height .2s ease, width .2s ease;
+}
+.book.single { aspect-ratio: .707 / 1; }
+.pages {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: rgba(94,71,40,.12);
+  border-radius: 12px;
+  overflow: visible;
+}
+.book.single .pages { grid-template-columns: 1fr; }
+.page {
+  position: relative;
+  margin: 0;
+  background: var(--paper);
+  overflow: hidden;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+.page img,
+.flip-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.page.left {
+  border-radius: 12px 3px 3px 12px;
+  box-shadow: inset -20px 0 24px rgba(50,32,12,.08);
+}
+.page.right {
+  border-radius: 3px 12px 12px 3px;
+  box-shadow: inset 20px 0 24px rgba(50,32,12,.07);
+}
+.book.single .page.left { display: none; }
+.book.single .page.right {
+  border-radius: 12px;
+  box-shadow: inset 0 0 30px rgba(50,32,12,.05);
+}
+.gutter {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 34px;
+  transform: translateX(-50%);
+  z-index: 4;
+  background: linear-gradient(90deg, rgba(0,0,0,.16), rgba(255,255,255,.18) 45%, rgba(0,0,0,.16));
+  mix-blend-mode: multiply;
+  opacity: .33;
+  border-radius: 50%;
+}
+.book.single .gutter { display: none; }
+.hint-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.hint-zone button {
+  opacity: 0;
+  min-height: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.flip-layer {
+  display: none;
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 50%;
+  z-index: 12;
+  transform-style: preserve-3d;
+  background: var(--paper);
+  overflow: hidden;
+  backface-visibility: hidden;
+  box-shadow: 0 12px 36px rgba(35,22,10,.24);
+}
+.flip-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,.22), rgba(255,255,255,0) 38%, rgba(255,255,255,.24));
+  opacity: .45;
+  pointer-events: none;
+}
+.flip-layer.next {
+  display: block;
+  right: 0;
+  transform-origin: left center;
+  border-radius: 3px 12px 12px 3px;
+  animation: flipNext .78s cubic-bezier(.2,.7,.15,1) forwards;
+}
+.flip-layer.prev {
+  display: block;
+  left: 0;
+  transform-origin: right center;
+  border-radius: 12px 3px 3px 12px;
+  animation: flipPrev .78s cubic-bezier(.2,.7,.15,1) forwards;
+}
+.book.single .flip-layer {
+  left: 0;
+  width: 100%;
+  border-radius: 12px;
+}
+.book.single .flip-layer.next { right: auto; transform-origin: left center; }
+.book.single .flip-layer.prev { transform-origin: right center; }
+.loading-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(255,250,243,.82);
+  backdrop-filter: blur(6px);
+}
+.loading-layer[hidden] { display: none; }
+.loading-layer div {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 18px 22px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.72);
+  color: var(--muted);
+  box-shadow: 0 10px 26px rgba(80,55,30,.12);
+}
+.loading-layer strong { color: var(--ink); }
+footer {
+  padding: 0 clamp(16px, 3vw, 34px) 10px;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+}
+.range-row {
+  width: min(780px, 92vw);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.status {
+  padding: 8px 12px;
+  background: rgba(255,255,255,.68);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  box-shadow: 0 4px 14px rgba(80,55,30,.08);
+}
+@keyframes flipNext {
+  0% { transform: rotateY(0deg); }
+  38% { filter: brightness(.96); }
+  100% { transform: rotateY(-178deg); }
+}
+@keyframes flipPrev {
+  0% { transform: rotateY(0deg); }
+  38% { filter: brightness(.96); }
+  100% { transform: rotateY(178deg); }
+}
+@media (min-width: 861px) and (max-height: 760px) {
+  .book { height: min(56vh, 610px); }
+  .title h1 { font-size: clamp(22px, 3vw, 35px); }
+  button { min-height: 34px; }
+  .status { padding-top: 6px; padding-bottom: 6px; }
+}
+@media (max-width: 860px) {
+  .app { overflow: auto; }
+  header { align-items: flex-start; flex-direction: column; }
+  .tools { width: 100%; justify-items: start; }
+  .book-switcher, .controls { justify-content: flex-start; }
+  .book { height: auto; width: min(96vw, 1120px); }
+  .book.single { width: min(72vw, 540px); }
+}
+@media (max-width: 540px) {
+  header { padding-top: 12px; }
+  .title h1 { font-size: 30px; }
+  .book-switcher, .controls { width: 100%; }
+  .book-switcher {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .book-switcher button,
+  .controls button {
+    min-width: 0;
+    padding-right: 10px;
+    padding-left: 10px;
+    white-space: nowrap;
+  }
+}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="title">
+        <p>ユーコープ絵本 フリップブック</p>
+        <h1 id="bookTitle">てとてと</h1>
+      </div>
+      <div class="tools" aria-label="冊子とページ操作">
+        <div class="book-switcher" aria-label="冊子選択">
+          <button id="tetotetoBtn" class="active" type="button">てとてと</button>
+          <button id="mogumoguBtn" type="button">もぐもぐ</button>
+        </div>
+        <div class="controls">
+          <button id="firstBtn" type="button">最初</button>
+          <button id="prevBtn" type="button">← 戻る</button>
+          <button id="nextBtn" type="button">次へ →</button>
+          <button id="lastBtn" type="button">最後</button>
+        </div>
+      </div>
+    </header>
+    <main class="viewer-wrap">
+      <div class="viewer">
+        <div id="book" class="book single" aria-live="polite">
+          <div class="pages">
+            <figure class="page left"><img id="leftImg" alt="左ページ"></figure>
+            <figure class="page right"><img id="rightImg" alt="右ページ"></figure>
+            <div class="gutter"></div>
+          </div>
+          <div id="flipLayer" class="flip-layer"><img id="flipImg" alt=""></div>
+          <div class="hint-zone" aria-hidden="true">
+            <button id="leftClick" type="button" tabindex="-1">前へ</button>
+            <button id="rightClick" type="button" tabindex="-1">次へ</button>
+          </div>
+          <div id="loadingLayer" class="loading-layer">
+            <div>
+              <strong id="loadingTitle">PDFを読み込み中</strong>
+              <span id="loadingStatus">準備しています</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    <footer>
+      <div class="range-row">
+        <span>表紙</span>
+        <input id="pageRange" type="range" min="0" value="0" aria-label="表示ページ">
+        <span>裏表紙</span>
+      </div>
+      <div id="statusText" class="status">読み込み中</div>
+    </footer>
+  </div>
+  <script type="module">
+import * as pdfjsLib from "./pdf.mjs";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = "./pdf.worker.mjs";
+
+const BOOKS = {
+  tetoteto: { title: "てとてと", file: "./flipbooks/tetoteto.pdf" },
+  mogumogu: { title: "もぐもぐ", file: "./flipbooks/mogumogu.pdf" }
+};
+const FLIP_MS = 760;
+
+let activeBookId = "tetoteto";
+let pageImages = [];
+let pageCount = 0;
+let groups = [];
+let viewIndex = 0;
+let isAnimating = false;
+let touchStart = 0;
+let loadToken = 0;
+
+const book = document.getElementById("book");
+const bookTitle = document.getElementById("bookTitle");
+const leftImg = document.getElementById("leftImg");
+const rightImg = document.getElementById("rightImg");
+const flipLayer = document.getElementById("flipLayer");
+const flipImg = document.getElementById("flipImg");
+const loadingLayer = document.getElementById("loadingLayer");
+const loadingTitle = document.getElementById("loadingTitle");
+const loadingStatus = document.getElementById("loadingStatus");
+const statusText = document.getElementById("statusText");
+const pageRange = document.getElementById("pageRange");
+const firstBtn = document.getElementById("firstBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const lastBtn = document.getElementById("lastBtn");
+const tetotetoBtn = document.getElementById("tetotetoBtn");
+const mogumoguBtn = document.getElementById("mogumoguBtn");
+
+function makeGroups(total) {
+  if (!total) return [];
+  const nextGroups = [{ type: "single", pages: [1], label: "表紙" }];
+  let page = 2;
+
+  while (page < total) {
+    if (page + 1 < total) {
+      nextGroups.push({ type: "spread", pages: [page, page + 1], label: `${page}-${page + 1}ページ` });
+      page += 2;
+    } else {
+      nextGroups.push({ type: "single", pages: [page], label: `${page}ページ` });
+      page += 1;
+    }
+  }
+
+  if (total > 1) {
+    nextGroups.push({ type: "single", pages: [total], label: "裏表紙" });
+  }
+
+  return nextGroups;
+}
+
+function imageFor(pageNumber) {
+  return pageImages[pageNumber - 1] || "";
+}
+
+function setButtons() {
+  const ready = pageImages.length === pageCount && pageCount > 0 && !loadingLayer.hidden;
+  const disabled = isAnimating || !pageCount || pageImages.length !== pageCount;
+  firstBtn.disabled = disabled || viewIndex === 0;
+  prevBtn.disabled = disabled || viewIndex === 0;
+  nextBtn.disabled = disabled || viewIndex === groups.length - 1;
+  lastBtn.disabled = disabled || viewIndex === groups.length - 1;
+  pageRange.disabled = disabled;
+}
+
+function render() {
+  const group = groups[viewIndex];
+  if (!group) {
+    statusText.textContent = "読み込み中";
+    setButtons();
+    return;
+  }
+
+  book.classList.toggle("single", group.type === "single");
+  leftImg.removeAttribute("src");
+  rightImg.removeAttribute("src");
+
+  if (group.type === "spread") {
+    const leftSrc = imageFor(group.pages[0]);
+    if (leftSrc) leftImg.src = leftSrc;
+    const rightSrc = imageFor(group.pages[1]);
+    if (rightSrc) rightImg.src = rightSrc;
+  } else {
+    const rightSrc = imageFor(group.pages[0]);
+    if (rightSrc) rightImg.src = rightSrc;
+  }
+
+  statusText.textContent = `${viewIndex + 1} / ${groups.length}　${group.label}`;
+  pageRange.max = String(Math.max(groups.length - 1, 0));
+  pageRange.value = String(viewIndex);
+  setButtons();
+}
+
+async function loadBook(bookId) {
+  const token = ++loadToken;
+  const activeBook = BOOKS[bookId];
+  activeBookId = bookId;
+  pageImages = [];
+  pageCount = 0;
+  groups = [];
+  viewIndex = 0;
+  isAnimating = false;
+  bookTitle.textContent = activeBook.title;
+  tetotetoBtn.classList.toggle("active", bookId === "tetoteto");
+  mogumoguBtn.classList.toggle("active", bookId === "mogumogu");
+  loadingLayer.hidden = false;
+  loadingTitle.textContent = "PDFを読み込み中";
+  loadingStatus.textContent = "準備しています";
+  render();
+
+  try {
+    const pdf = await pdfjsLib.getDocument(activeBook.file).promise;
+    if (token !== loadToken) return;
+
+    pageCount = pdf.numPages;
+    groups = makeGroups(pageCount);
+    render();
+
+    for (let index = 1; index <= pageCount; index += 1) {
+      const page = await pdf.getPage(index);
+      const viewport = page.getViewport({ scale: 1 });
+      const targetWidth = Math.min(1500, Math.max(980, Math.floor(window.innerWidth * (window.innerWidth < 760 ? 1.55 : 0.92))));
+      const scale = Math.min(2.25, Math.max(1.25, targetWidth / viewport.width));
+      const scaledViewport = page.getViewport({ scale });
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d", { alpha: false });
+      canvas.width = Math.floor(scaledViewport.width);
+      canvas.height = Math.floor(scaledViewport.height);
+      await page.render({ canvasContext: context, viewport: scaledViewport }).promise;
+
+      if (token !== loadToken) return;
+      pageImages.push(canvas.toDataURL("image/jpeg", 0.92));
+      loadingStatus.textContent = `${index} / ${pageCount}ページ`;
+      render();
+    }
+
+    pdf.destroy();
+    loadingLayer.hidden = true;
+    render();
+  } catch (error) {
+    console.error(error);
+    loadingTitle.textContent = "PDFの読み込みに失敗しました";
+    loadingStatus.textContent = "ファイルを確認してください";
+  }
+}
+
+function goTo(targetIndex) {
+  const group = groups[viewIndex];
+  if (isAnimating || !group || targetIndex < 0 || targetIndex >= groups.length || targetIndex === viewIndex || pageImages.length !== pageCount) return;
+
+  const direction = targetIndex > viewIndex ? "next" : "prev";
+  const overlayPage = group.type === "single" ? group.pages[0] : direction === "next" ? group.pages[1] : group.pages[0];
+  const overlaySrc = imageFor(overlayPage);
+  if (!overlaySrc) return;
+
+  isAnimating = true;
+  flipImg.src = overlaySrc;
+  flipLayer.className = `flip-layer ${direction}`;
+  render();
+
+  window.setTimeout(() => {
+    viewIndex = targetIndex;
+    flipLayer.className = "flip-layer";
+    flipImg.removeAttribute("src");
+    isAnimating = false;
+    render();
+  }, FLIP_MS);
+}
+
+firstBtn.addEventListener("click", () => goTo(0));
+prevBtn.addEventListener("click", () => goTo(viewIndex - 1));
+nextBtn.addEventListener("click", () => goTo(viewIndex + 1));
+lastBtn.addEventListener("click", () => goTo(groups.length - 1));
+document.getElementById("leftClick").addEventListener("click", () => goTo(viewIndex - 1));
+document.getElementById("rightClick").addEventListener("click", () => goTo(viewIndex + 1));
+pageRange.addEventListener("input", (event) => goTo(Number(event.target.value)));
+tetotetoBtn.addEventListener("click", () => loadBook("tetoteto"));
+mogumoguBtn.addEventListener("click", () => loadBook("mogumogu"));
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+    event.preventDefault();
+    goTo(viewIndex + 1);
+  }
+  if (event.key === "ArrowLeft" || event.key === "PageUp") {
+    event.preventDefault();
+    goTo(viewIndex - 1);
+  }
+  if (event.key === "Home") {
+    event.preventDefault();
+    goTo(0);
+  }
+  if (event.key === "End") {
+    event.preventDefault();
+    goTo(groups.length - 1);
+  }
+});
+
+book.addEventListener("touchstart", (event) => {
+  touchStart = event.changedTouches[0].screenX;
+}, { passive: true });
+
+book.addEventListener("touchend", (event) => {
+  const diff = event.changedTouches[0].screenX - touchStart;
+  if (Math.abs(diff) > 44) {
+    goTo(diff < 0 ? viewIndex + 1 : viewIndex - 1);
+  }
+}, { passive: true });
+
+loadBook(activeBookId);
+  </script>
+</body>
+</html>
